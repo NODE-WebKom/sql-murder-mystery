@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SQL Murder Mystery Bureau
 
-## Getting Started
+A tactile SQL investigation game built with Next.js and three local SQLite evidence databases. Players query records in a read-only CodeMirror terminal, inspect complete schemas, keep locally saved notes, reveal staged hints, and file a structured verdict.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
+npm run seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run verify:cases
+npm run lint
+npm run build
+```
 
-## Learn More
+`verify:cases` runs each canonical evidence chain and asserts that every mystery has exactly one culprit.
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Next.js App Router pages and Node.js route handlers
+- `better-sqlite3` databases opened with `readonly` and `query_only`
+- CodeMirror 6 with SQLite highlighting and schema-aware completion
+- Paper Shaders for procedural page fibers and surface variation
+- Local storage for SQL drafts, notes, hints, verdict drafts, and solved status
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Query route handlers accept only row-returning `SELECT`, `WITH`, and `EXPLAIN QUERY PLAN` statements. Output is capped at 200 rows.
 
-## Deploy on Vercel
+## Assets
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Cork board: [Cork 003](https://ambientcg.com/a/Cork003) from ambientCG, CC0 1.0.
+- Desk: [Wood 051](https://ambientcg.com/a/Wood051) from ambientCG, CC0 1.0.
+- Procedural paper texture: [Paper Shaders](https://github.com/paper-design/shaders), Apache-2.0.
