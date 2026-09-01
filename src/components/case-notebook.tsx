@@ -282,9 +282,7 @@ function BookmarkRail({
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     if (!step) return;
     event.preventDefault();
-    // The right rail runs in reverse, so its arrow keys must run in reverse too.
-    const direction = side === "right" ? -step : step;
-    const next = (index + direction + SECTIONS.length) % SECTIONS.length;
+    const next = (index + step + SECTIONS.length) % SECTIONS.length;
     buttons.current[next]?.focus();
   }
 
