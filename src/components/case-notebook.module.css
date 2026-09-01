@@ -272,9 +272,10 @@
 /* --- Bookmarks -----------------------------------------------------------
    One rail per page, slotted into the top edge of that page. They sit behind
    the paper (z-index below .spread) so the tabs read as inserted into the book.
-   The left rail runs outward from the spine's left page, the right rail mirrors
-   it, so the two sets fan away from the binding. Tabs are text-only; a section
-   parked on the other page is shown by dimming alone. */
+   Each rail sits over its own page, and both read in the same order rather than
+   mirroring across the binding: matching the fanned-out look of a real book made
+   the two sets harder to compare than it was worth. Tabs are text-only; a
+   section parked on the other page is shown by dimming alone. */
 
 .bookmarkRail {
   position: absolute;
@@ -288,7 +289,7 @@
 }
 
 .rail_left { left: 26px; flex-direction: row; }
-.rail_right { right: 26px; flex-direction: row-reverse; }
+.rail_right { right: 26px; flex-direction: row; }
 
 .bookmark {
   position: relative;
