@@ -740,21 +740,7 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
           <div className={styles.briefCopy}>
             {mystery.brief.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
           </div>
-          <div className={styles.factGrid}>
-            {mystery.facts.map((fact) => (
-              <div key={fact.label}><span>{fact.label}</span><b>{fact.value}</b></div>
-            ))}
-          </div>
-          <section className={styles.objective}>
-            <h3>Your objective</h3>
-            <p>{mystery.objective}</p>
-          </section>
         </div>
-
-        <section className={styles.statements}>
-          <h3>Statements on file</h3>
-          {mystery.statements.map((statement) => <p key={statement}>{statement}</p>)}
-        </section>
 
         <section className={styles.hints}>
           <div className={styles.hintsHeading}>
