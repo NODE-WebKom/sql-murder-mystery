@@ -1,18 +1,6 @@
 "use client";
 
-import {
-  Anchor,
-  BookOpen,
-  Building2,
-  Clock3,
-  Coffee,
-  Database,
-  Landmark,
-  Sailboat,
-  Ship,
-  Skull,
-  TriangleAlert,
-} from "lucide-react";
+import { Database } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -20,12 +8,18 @@ import type { CaseDefinition, CaseSlug } from "@/lib/types";
 
 import styles from "./case-board.module.css";
 
-const icons = [Coffee, Landmark, Anchor, Skull, BookOpen, Sailboat, TriangleAlert, Building2, Ship, Database, Clock3];
 
+/** Post-it colour per difficulty: green, yellow, red as the tiers climb. */
 const DIFFICULTY_COLORS: Record<string, string> = {
-  Beginner: "#f0d87a",
-  Intermediate: "#bdd89c",
-  Advanced: "#d9b59b",
+  Beginner: "#b6cf92",
+  Intermediate: "#f0d87a",
+  Advanced: "#dd9b8f",
+};
+
+const DIFFICULTY_ORDER: Record<string, number> = {
+  Beginner: 0,
+  Intermediate: 1,
+  Advanced: 2,
 };
 
 interface PinPos {
@@ -48,7 +42,12 @@ function buildThreadPath(points: PinPos[]): string {
 }
 
 export function CaseBoard({ cases }: { cases: CaseDefinition[] }) {
-  const [solved, setSolved] = useState<Set<CaseSlug>>(new Set());
+  // Grouped by difficulty, easiest first, keeping the original order within a tier.
+  const ordered = [...cases].sort(
+    (a, b) => (DIFFICULTY_ORDER[a.difficulty] ?? 0) - (DIFFICULTY_ORDER[b.difficulty] ?? 0),
+  );
+  // slug -> leads opened before the case was closed
+  const [solved, setSolved] = useState<Map<CaseSlug, number>>(new Map());
   const [pinPositions, setPinPositions] = useState<PinPos[]>([]);
   const boardRef = useRef<HTMLElement>(null);
   const cardRefs = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -70,10 +69,14 @@ export function CaseBoard({ cases }: { cases: CaseDefinition[] }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const completed = cases
-        .filter((mystery) => localStorage.getItem(`sqlmm:${mystery.slug}:solved`) === "true")
-        .map((mystery) => mystery.slug);
-      setSolved(new Set(completed));
+      const completed = new Map<CaseSlug, number>();
+      for (const mystery of cases) {
+        if (localStorage.getItem(`sqlmm:${mystery.slug}:solved`) !== "true") continue;
+        const opened = Number(localStorage.getItem(`sqlmm:${mystery.slug}:hints`));
+        const leads = Number.isInteger(opened) ? Math.min(Math.max(opened, 0), mystery.hints.length) : 0;
+        completed.set(mystery.slug, leads);
+      }
+      setSolved(completed);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [cases]);
@@ -94,9 +97,7 @@ export function CaseBoard({ cases }: { cases: CaseDefinition[] }) {
         <section className={styles.board} aria-labelledby="board-title" ref={boardRef}>
           <div className={styles.boardShade} />
           <header className={styles.masthead}>
-            <span className={styles.mastheadRule}>Municipal Investigation Unit</span>
-            <h1 id="board-title">SQL Murder Mystery Bureau</h1>
-            <p>Interrogate the evidence. Query the records. Name the killer.</p>
+            <h1 id="board-title">SQL Murder Mystery</h1>
           </header>
 
           <div className={styles.caseCount} aria-label={`${solved.size} of ${cases.length} cases solved`}>
@@ -129,9 +130,10 @@ export function CaseBoard({ cases }: { cases: CaseDefinition[] }) {
           )}
 
           <ol className={styles.caseGrid}>
-            {cases.map((mystery, index) => {
-              const Icon = icons[index % icons.length];
+            {ordered.map((mystery, index) => {
               const bgColor = DIFFICULTY_COLORS[mystery.difficulty] ?? DIFFICULTY_COLORS.Beginner;
+              const leads = solved.get(mystery.slug);
+              const closed = leads !== undefined;
               return (
                 <li key={mystery.slug}>
                   <Link
@@ -150,14 +152,14 @@ export function CaseBoard({ cases }: { cases: CaseDefinition[] }) {
                       <span>{mystery.caseNumber}</span>
                       <span className={styles.difficulty}>{mystery.difficulty}</span>
                     </span>
-                    <span className={styles.caseIcon} aria-hidden="true">
-                      <Icon size={22} strokeWidth={1.7} />
-                    </span>
                     <strong>{mystery.title}</strong>
                     <span className={styles.boardNote}>{mystery.boardNote}</span>
-                    <span className={styles.fileFooter}>
-                      <span><Clock3 size={13} /> {mystery.estimatedMinutes} min</span>
-                    </span>
+                    {closed && (
+                      <span className={styles.stamp}>
+                        <b>Case closed</b>
+                        <i>{leads === 0 ? "No leads used" : `${leads} lead${leads === 1 ? "" : "s"} used`}</i>
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

@@ -9,12 +9,7 @@ function isVerdictPayload(value: unknown): value is VerdictPayload {
     typeof value === "object" &&
     value !== null &&
     "culprit" in value &&
-    typeof value.culprit === "string" &&
-    "method" in value &&
-    typeof value.method === "string" &&
-    "motive" in value &&
-    typeof value.motive === "string" &&
-    (!("narrative" in value) || typeof value.narrative === "string")
+    typeof value.culprit === "string"
   );
 }
 
@@ -36,13 +31,13 @@ export async function POST(
 
   if (!isVerdictPayload(body)) {
     return Response.json(
-      { error: "Culprit, method, and motive are required." },
+      { error: "A name is required." },
       { status: 400 },
     );
   }
 
-  if ([body.culprit, body.method, body.motive].some((value) => value.length > 1_000)) {
-    return Response.json({ error: "Verdict fields are too long." }, { status: 400 });
+  if (body.culprit.length > 1_000) {
+    return Response.json({ error: "That name is too long." }, { status: 400 });
   }
 
   return Response.json(checkVerdict(slug, body));

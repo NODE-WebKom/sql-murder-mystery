@@ -10,6 +10,7 @@ interface SolutionField {
 
 interface Solution {
   culprit: SolutionField;
+  /** Retained for reference; only the culprit is checked. */
   method: SolutionField;
   motive: SolutionField;
   reconstruction: string;
@@ -374,20 +375,13 @@ export function checkVerdict(
   payload: VerdictPayload,
 ): VerdictResult {
   const solution = SOLUTIONS[slug];
-  const fields = {
-    culprit: matches(payload.culprit, solution.culprit),
-    method: matches(payload.method, solution.method),
-    motive: matches(payload.motive, solution.motive),
-  };
-  const solved = Object.values(fields).every(Boolean);
-  const correctCount = Object.values(fields).filter(Boolean).length;
+  const solved = matches(payload.culprit, solution.culprit);
 
   return {
     solved,
-    fields,
     message: solved
       ? "The evidence holds. Case closed."
-      : `${correctCount} of 3 conclusions hold up under the evidence. Recheck the marked fields.`,
+      : "That name does not hold up under the evidence. Keep digging.",
     reconstruction: solved ? solution.reconstruction : undefined,
   };
 }

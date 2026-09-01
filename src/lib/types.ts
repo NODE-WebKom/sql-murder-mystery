@@ -80,18 +80,10 @@ export type QueryResult = QuerySuccess | QueryFailure;
 
 export interface VerdictPayload {
   culprit: string;
-  method: string;
-  motive: string;
-  narrative?: string;
 }
 
 export interface VerdictResult {
   solved: boolean;
-  fields: {
-    culprit: boolean;
-    method: boolean;
-    motive: boolean;
-  };
   message: string;
   reconstruction?: string;
 }

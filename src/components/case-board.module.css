@@ -80,16 +80,6 @@
 .masthead::before { left: 25px; transform: rotate(-5deg); }
 .masthead::after { right: 25px; transform: rotate(6deg); }
 
-.mastheadRule {
-  display: block;
-  margin-bottom: 5px;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: .24em;
-  text-transform: uppercase;
-  opacity: .62;
-}
-
 .masthead h1 {
   font-family: var(--typewriter);
   font-size: clamp(22px, 3vw, 42px);
@@ -97,13 +87,6 @@
   line-height: 1.1;
   letter-spacing: .04em;
   text-transform: uppercase;
-}
-
-.masthead p {
-  margin-top: 6px;
-  font-size: clamp(13px, 1.2vw, 17px);
-  font-style: italic;
-  color: #c8bca9;
 }
 
 .caseCount {
@@ -205,13 +188,49 @@
   mix-blend-mode: soft-light;
 }
 
+/* Rubber stamp on a closed case. Sits in the space the time footer used to
+   occupy, multiplied into the paper so it reads as ink rather than a label. */
+.stamp {
+  position: absolute;
+  z-index: 2;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  padding: 8px 15px 7px;
+  transform: rotate(-11deg);
+  flex-direction: column;
+  color: rgba(134, 32, 27, .84);
+  border: 2.5px solid rgba(134, 32, 27, .62);
+  border-radius: 3px;
+  opacity: .9;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+.stamp b {
+  font-family: var(--typewriter);
+  font-size: clamp(14px, 1.25vw, 18px);
+  font-weight: 400;
+  letter-spacing: .1em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.stamp i {
+  font-family: var(--mono);
+  font-size: 8px;
+  font-style: normal;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
 .case1 { transform: rotate(-2.2deg); }
 .case2 { transform: translateY(22px) rotate(1.25deg); }
 .case3 { transform: rotate(-.8deg); }
 
-.fileTopline,
-.fileFooter,
-.fileFooter > span {
+.fileTopline {
   display: flex;
   align-items: center;
 }
@@ -232,20 +251,9 @@
   letter-spacing: .02em;
 }
 
-.caseIcon {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  margin: 27px 0 14px;
-  place-items: center;
-  color: #f3ebdc;
-  border-radius: 50%;
-  background: #37312c;
-  box-shadow: 2px 3px 0 rgba(0,0,0,.15);
-}
-
 .caseFile strong {
   max-width: 260px;
+  margin-top: 26px;
   font-family: var(--typewriter);
   font-size: clamp(21px, 2vw, 30px);
   font-weight: 400;
@@ -254,25 +262,13 @@
 }
 
 .boardNote {
-  margin: 15px 0 24px;
+  margin: 15px 0 auto;
   font-family: var(--hand);
   font-size: clamp(20px, 1.8vw, 25px);
   line-height: 1.12;
   color: #3d3428;
 }
 
-.fileFooter {
-  justify-content: space-between;
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid rgba(56, 49, 31, .2);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
-
-.fileFooter > span { gap: 5px; }
 .open { color: #6e2924; }
 .solved { color: #2f5e45; }
 
@@ -351,7 +347,6 @@
 
 @media (max-width: 520px) {
   .masthead { max-width: calc(100% - 22px); padding-inline: 13px; }
-  .mastheadRule { letter-spacing: .12em; }
   .caseGrid { width: calc(100% - 30px); gap: 28px; }
   .caseFile { padding-inline: 22px; }
   .clipping { display: none; }
