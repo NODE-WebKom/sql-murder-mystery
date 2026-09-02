@@ -21,7 +21,7 @@ const detectiveTheme = EditorView.theme({
   ".cm-content": {
     padding: "16px 0 24px",
     caretColor: "#5e7479",
-    fontFamily: '"Caveat", cursive',
+    fontFamily: '"Caveat Variable", "Caveat", cursive',
     lineHeight: "1.8",
   },
   ".cm-line": { padding: "0 18px" },
@@ -42,7 +42,7 @@ const detectiveTheme = EditorView.theme({
     color: "#33424a",
     border: "1px solid rgba(63,55,44,0.3)",
     backgroundColor: "rgba(255,255,255,0.9)",
-    fontFamily: '"Caveat", cursive',
+    fontFamily: '"Caveat Variable", "Caveat", cursive',
   },
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
     color: "#fff",
