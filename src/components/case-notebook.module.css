@@ -847,7 +847,7 @@
   background:
     repeating-linear-gradient(transparent 0 26px, rgba(74,112,133,.16) 26px 27px),
     transparent;
-  font-family: var(--hand);
+  font-family: var(--typewriter);
   font-size: 21px;
   line-height: 27px;
 }
@@ -885,7 +885,7 @@
   outline: 0;
   color: #33424a;
   background: rgba(255,255,255,.24);
-  font-family: var(--hand);
+  font-family: var(--typewriter);
   font-size: 24px;
 }
 .accuseForm input::placeholder { color: #9a9184; font-size: 19px; }
