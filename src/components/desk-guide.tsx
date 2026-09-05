@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, Check, Copy, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PaperTexture } from "@paper-design/shaders-react";
 
 import { GUIDE_SECTIONS, type GuideEntry, type GuideSection } from "@/lib/guide-content";
@@ -25,7 +25,7 @@ export function GuideTrigger({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function GuideRow({ label, code }: GuideEntry) {
+function GuideRow({ label, hint, code }: GuideEntry) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
 
@@ -49,7 +49,10 @@ function GuideRow({ label, code }: GuideEntry) {
 
   return (
     <div className={styles.row}>
-      <span className={styles.rowLabel}>{label}</span>
+      <span className={styles.rowLabel}>
+        {label}
+        <span className={styles.rowHint}>{hint}</span>
+      </span>
       <pre className={styles.code}>
         <SqlCode code={code} />
       </pre>
@@ -66,14 +69,23 @@ function GuideRow({ label, code }: GuideEntry) {
 }
 
 function GuideBlock({ title, entries }: GuideSection) {
+  const rows: ReactNode[] = [];
+  let lastGroup: string | undefined;
+  for (const entry of entries) {
+    if (entry.group !== undefined && entry.group !== lastGroup) {
+      lastGroup = entry.group;
+      rows.push(
+        <p key={`group-${entry.group}`} className={styles.groupLabel} aria-hidden="true">
+          {entry.group}
+        </p>,
+      );
+    }
+    rows.push(<GuideRow key={entry.label} {...entry} />);
+  }
   return (
     <section className={styles.card} aria-label={title}>
       <h3>{title}</h3>
-      <div className={styles.rows}>
-        {entries.map((entry) => (
-          <GuideRow key={entry.label} {...entry} />
-        ))}
-      </div>
+      <div className={styles.rows}>{rows}</div>
     </section>
   );
 }
@@ -130,10 +142,11 @@ export function DeskGuide({ open, onClose }: { open: boolean; onClose: () => voi
         <div className={styles.sheetInner}>
           <header className={styles.sheetHead}>
             <div>
-              <span className={styles.kicker}>Same on every case</span>
+              <span className={styles.kicker}>Read top to bottom, like the case</span>
               <h2>SQL cheat sheet</h2>
               <p>
-                Swap in real table and column names from the Schema page.
+                Copy a pattern, then swap in real table and column names
+                from the Schema page.
               </p>
             </div>
             <button
@@ -153,7 +166,7 @@ export function DeskGuide({ open, onClose }: { open: boolean; onClose: () => voi
             ))}
           </div>
           <p className={styles.footnote}>
-            Read-only: SELECT · WITH · EXPLAIN QUERY PLAN. Max 200 rows.
+            Terminal is read-only: SELECT · WITH · EXPLAIN QUERY PLAN. Max 200 rows per query.
           </p>
         </div>
       </div>
