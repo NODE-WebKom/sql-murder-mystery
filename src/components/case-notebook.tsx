@@ -9,9 +9,11 @@ import {
   Gavel,
   KeyRound,
   Lightbulb,
+  Maximize2,
   Play,
   RotateCcw,
   Search,
+  X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -36,6 +38,7 @@ import type {
   VerdictResult,
 } from "@/lib/types";
 
+import { DeskGuide, GuideTrigger } from "./desk-guide";
 import styles from "./case-notebook.module.css";
 
 const SqlEditor = dynamic(() => import("./sql-editor"), {
@@ -231,6 +234,8 @@ function PageFold({
   label,
   open,
   grow,
+  className,
+  style,
   onToggle,
   children,
 }: {
@@ -238,11 +243,13 @@ function PageFold({
   label: string;
   open: boolean;
   grow?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
   onToggle: (id: FoldId, open: boolean) => void;
   children: ReactNode;
 }) {
   return (
-    <section className={`${styles.pageFold} ${grow ? styles.foldGrow : ""}`} data-open={open}>
+    <section className={`${styles.pageFold} ${grow ? styles.foldGrow : ""} ${className ?? ""}`} data-open={open} style={style}>
       <button
         type="button"
         className={styles.foldSummary}
@@ -325,31 +332,265 @@ function BookmarkRail({
   );
 }
 
+function LongCell({ value }: { value: string }) {
+  const [expanded, setExpanded] = useState(false);
+  // Short values read fine as-is; only long evidence text gets clamped.
+  if (value.length <= 180) return <>{value}</>;
+  return (
+    <span className={styles.longCell}>
+      <span className={expanded ? undefined : styles.longCellClamp} title={value}>
+        {value}
+      </span>
+      <button
+        type="button"
+        className={styles.cellExpand}
+        aria-expanded={expanded}
+        onClick={() => setExpanded((current) => !current)}
+      >
+        {expanded ? "Show less" : "Show more"}
+      </button>
+    </span>
+  );
+}
+
+type ColumnWidth = "short" | "medium" | "long";
+
+function columnWidth(kind: ColumnWidth | undefined, sampleMax: number): ColumnWidth {
+  if (kind) return kind;
+  if (sampleMax > 80) return "long";
+  if (sampleMax > 24) return "medium";
+  return "short";
+}
+
 function ResultTable({ result }: { result: Extract<QueryResult, { ok: true }> }) {
+  // Size columns by content (sampled) so a 150-char statement earns a wide
+  // column with horizontal scroll instead of sharing the page width evenly.
+  const widths = new Map<string, ColumnWidth>();
+  for (const column of result.columns) {
+    let longestName: ColumnWidth | undefined;
+    const lowered = column.toLowerCase();
+    if (/(^|_)id$|count|_no$|_num$/.test(lowered)) longestName = undefined;
+    else if (/statement|details|report|description|notes|content|message|reconstruction/.test(lowered)) {
+      widths.set(column, "long");
+      continue;
+    }
+    let max = column.length;
+    for (let i = 0; i < Math.min(result.rows.length, 20); i++) {
+      const value = result.rows[i][column];
+      const length = value === null ? 4 : String(value).length;
+      if (length > max) max = length;
+    }
+    widths.set(column, columnWidth(longestName, max));
+  }
+
   return (
     <div className={styles.resultScroller}>
       <table className={styles.resultTable}>
         <thead>
           <tr>
-            <th aria-label="Row number">#</th>
+            <th aria-label="Row number" data-width="short">#</th>
             {result.columns.map((column, index) => (
-              <th key={`${column}-${index}`}>{column}</th>
+              <th key={`${column}-${index}`} data-width={widths.get(column) ?? "medium"}>{column}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {result.rows.map((row, rowIndex) => (
             <tr key={rowIndex}>
-              <th>{rowIndex + 1}</th>
+              <th data-width="short">{rowIndex + 1}</th>
               {result.columns.map((column, columnIndex) => (
-                <td key={`${column}-${columnIndex}`}>
-                  {row[column] === null ? <i>NULL</i> : String(row[column])}
+                <td key={`${column}-${columnIndex}`} data-width={widths.get(column) ?? "medium"}>
+                  {row[column] === null ? <i>NULL</i> : <LongCell value={String(row[column])} />}
                 </td>
               ))}
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Share of the SQL split given to the query pane (percent). Results get the rest. */
+const SPLIT_MIN = 15;
+const SPLIT_MAX = 85;
+const DEFAULT_SPLIT = 40;
+
+function clampSplit(value: number): number {
+  if (Number.isNaN(value)) return DEFAULT_SPLIT;
+  return Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, Math.round(value)));
+}
+
+/**
+ * Drag handle between the query and results folds. Pointer drag adjusts the
+ * split; arrow keys nudge it for keyboard users.
+ */
+function SqlSplitter({
+  containerRef,
+  value,
+  onChange,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  function updateFromClientY(clientY: number) {
+    const element = containerRef.current;
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    if (rect.height <= 0) return;
+    onChange(clampSplit(((clientY - rect.top) / rect.height) * 100));
+  }
+
+  function onKeyDown(event: React.KeyboardEvent) {
+    let delta = 0;
+    if (event.key === "ArrowUp" || event.key === "ArrowLeft") delta = -2;
+    else if (event.key === "ArrowDown" || event.key === "ArrowRight") delta = 2;
+    else if (event.key === "Home") {
+      event.preventDefault();
+      onChange(SPLIT_MIN);
+      return;
+    } else if (event.key === "End") {
+      event.preventDefault();
+      onChange(SPLIT_MAX);
+      return;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    onChange(clampSplit(value + delta * (event.shiftKey ? 5 : 1)));
+  }
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Resize query and results"
+      aria-valuemin={SPLIT_MIN}
+      aria-valuemax={SPLIT_MAX}
+      aria-valuenow={Math.round(value)}
+      tabIndex={0}
+      className={styles.splitter}
+      onKeyDown={onKeyDown}
+      onPointerDown={(event) => {
+        event.currentTarget.setPointerCapture(event.pointerId);
+        updateFromClientY(event.clientY);
+      }}
+      onPointerMove={(event) => {
+        if (event.buttons & 1) updateFromClientY(event.clientY);
+      }}
+    >
+      <span aria-hidden="true" />
+    </div>
+  );
+}
+
+/**
+ * Almost-fullscreen results sheet above the desk, mirroring the cheat-sheet
+ * overlay but straight (no skew) so wide tables read easily.
+ */
+function ExpandedResults({
+  open,
+  onClose,
+  queryRunning,
+  queryResult,
+  firstTable,
+}: {
+  open: boolean;
+  onClose: () => void;
+  queryRunning: boolean;
+  queryResult: QueryResult | null;
+  firstTable: string | undefined;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className={styles.resultBackdrop} onClick={onClose}>
+      <div
+        className={styles.resultModal}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Query results"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className={styles.resultModalHead}>
+          <div>
+            <span className={styles.resultModalKicker}>Evidence terminal</span>
+            <h2>Query results</h2>
+            <div className={styles.resultModalStatus} aria-live="polite">
+              {queryRunning ? (
+                <span className={styles.statusWorking}>Searching records...</span>
+              ) : queryResult?.ok ? (
+                <>
+                  <span className={styles.statusGood}>{queryResult.rowCount} rows returned</span>
+                  <span>{queryResult.elapsedMs.toFixed(1)} ms</span>
+                </>
+              ) : queryResult ? (
+                <span className={styles.statusBad}>Query stopped</span>
+              ) : (
+                <span>No query run yet</span>
+              )}
+            </div>
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            className={styles.resultModalClose}
+            onClick={onClose}
+            aria-label="Close expanded results"
+          >
+            <X size={16} aria-hidden="true" />
+            Close
+          </button>
+        </header>
+        <div className={styles.resultModalBody}>
+          {!queryResult && (
+            <div className={styles.emptyResult}>
+              <Search size={30} strokeWidth={1.25} />
+              <h3>The records are waiting</h3>
+              <p>Run a query below. Results are logged here without altering the evidence.</p>
+              {firstTable && <code>SELECT * FROM {firstTable} LIMIT 10;</code>}
+            </div>
+          )}
+          {queryResult && !queryResult.ok && (
+            <div className={styles.queryError} role="alert">
+              <CircleAlert size={23} />
+              <div>
+                <b>SQLite reports</b>
+                <p>{queryResult.error}</p>
+              </div>
+            </div>
+          )}
+          {queryResult?.ok && queryResult.rows.length === 0 && (
+            <div className={styles.emptyResult}>
+              <FileText size={28} strokeWidth={1.3} />
+              <h3>No matching records</h3>
+              <p>The query ran successfully but returned no rows. Check names, values, and time boundaries.</p>
+            </div>
+          )}
+          {queryResult?.ok && queryResult.rows.length > 0 && <ResultTable result={queryResult} />}
+          {queryResult?.ok && queryResult.truncated && (
+            <p className={styles.truncatedNote}>Display stopped at 200 rows. Refine the query to narrow the evidence.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -366,9 +607,13 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
   const [verdictResult, setVerdictResult] = useState<VerdictResult | null>(null);
   const [verdictRunning, setVerdictRunning] = useState(false);
   const [schemaSearch, setSchemaSearch] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [queryShare, setQueryShare] = useState(DEFAULT_SPLIT);
+  const [resultsExpanded, setResultsExpanded] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const deferredSchemaSearch = useDeferredValue(schemaSearch);
   const queryRun = useRef(0);
+  const sqlSplitRef = useRef<HTMLDivElement>(null);
   const isNarrow = useIsNarrow();
 
   const filteredSchema = schema.filter((table) => {
@@ -390,6 +635,7 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
       const savedVerdict = localStorage.getItem(key("verdict"));
       const savedPages = localStorage.getItem(key("pages"));
       const savedFolds = localStorage.getItem(key("folds"));
+      const savedSplit = localStorage.getItem(key("split"));
 
       if (savedSql) setSqlText(savedSql);
       if (savedNotes) setNotes(savedNotes);
@@ -464,6 +710,12 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
         }
       }
 
+      if (savedSplit) {
+        const parsed = Number(savedSplit);
+        if (Number.isFinite(parsed)) setQueryShare(clampSplit(parsed));
+        else localStorage.removeItem(key("split"));
+      }
+
       setStorageReady(true);
     }, 0);
 
@@ -503,6 +755,11 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
     localStorage.setItem(`sqlmm:${mystery.slug}:folds`, JSON.stringify(folds));
   }, [mystery.slug, folds, storageReady]);
 
+  useEffect(() => {
+    if (!storageReady) return;
+    localStorage.setItem(`sqlmm:${mystery.slug}:split`, String(queryShare));
+  }, [mystery.slug, queryShare, storageReady]);
+
   /**
    * Turn one page to a section. Picking the section already open on the other
    * page swaps the two pages instead of showing it twice.
@@ -522,6 +779,10 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
 
   const toggleFold = useCallback((id: FoldId, open: boolean) => {
     setFolds((current) => (current[id] === open ? current : { ...current, [id]: open }));
+  }, []);
+
+  const closeResults = useCallback(() => {
+    setResultsExpanded(false);
   }, []);
 
   async function runQuery() {
@@ -576,84 +837,118 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
   }
 
   function renderSqlPage() {
+    const queryOpen = folds["sql-query"];
+    const resultsOpen = folds["sql-results"];
+    const bothOpen = queryOpen && resultsOpen;
     return (
       <>
-        <PageFold id="sql-query" label="Query" open={folds["sql-query"]} grow onToggle={toggleFold}>
-          <div className={styles.queryBrief}>
-            <span><KeyRound size={12} /> Ctrl/⌘ + Enter to run</span>
-          </div>
-          <div className={styles.editorShell}>
-            <div className={styles.editorBody}>
-              <SqlEditor
-                value={sqlText}
-                schema={schema}
-                onChange={setSqlText}
-                onRun={runQuery}
-              />
+        <div ref={sqlSplitRef} className={styles.sqlSplit}>
+          <PageFold
+            id="sql-query"
+            label="Query"
+            open={queryOpen}
+            grow
+            className={styles.foldQuery}
+            style={queryOpen ? { flex: `${queryShare} 1 0` } : undefined}
+            onToggle={toggleFold}
+          >
+            <div className={styles.queryBrief}>
+              <span><KeyRound size={12} /> Ctrl/⌘ + Enter to run</span>
             </div>
-          </div>
-          <div className={styles.queryActions}>
-            <button type="button" className={styles.textButton} onClick={resetSql}>
-              <RotateCcw size={14} /> Reset
-            </button>
-            <button
-              type="button"
-              className={styles.runButton}
-              onClick={runQuery}
-              disabled={queryRunning}
-            >
-              <Play size={15} fill="currentColor" />
-              {queryRunning ? "Running..." : "Run query"}
-            </button>
-          </div>
-        </PageFold>
+            <div className={styles.editorShell}>
+              <div className={styles.editorBody}>
+                <SqlEditor
+                  value={sqlText}
+                  schema={schema}
+                  onChange={setSqlText}
+                  onRun={runQuery}
+                />
+              </div>
+            </div>
+            <div className={styles.queryActions}>
+              <button type="button" className={styles.textButton} onClick={resetSql}>
+                <RotateCcw size={14} /> Reset
+              </button>
+              <button
+                type="button"
+                className={styles.runButton}
+                onClick={runQuery}
+                disabled={queryRunning}
+              >
+                <Play size={15} fill="currentColor" />
+                {queryRunning ? "Running..." : "Run query"}
+              </button>
+            </div>
+          </PageFold>
 
-        <PageFold id="sql-results" label="Results" open={folds["sql-results"]} grow onToggle={toggleFold}>
-          <div className={styles.resultStatus} aria-live="polite">
-            {queryRunning ? (
-              <span className={styles.statusWorking}>Searching records...</span>
-            ) : queryResult?.ok ? (
-              <>
-                <span className={styles.statusGood}>{queryResult.rowCount} rows returned</span>
-                <span>{queryResult.elapsedMs.toFixed(1)} ms</span>
-              </>
-            ) : queryResult ? (
-              <span className={styles.statusBad}>Query stopped</span>
-            ) : (
-              <span>No query run yet</span>
-            )}
-          </div>
-          <div className={styles.resultSheet}>
-            {!queryResult && (
-              <div className={styles.emptyResult}>
-                <Search size={30} strokeWidth={1.25} />
-                <h3>The records are waiting</h3>
-                <p>Run a query above. Results are logged here without altering the evidence.</p>
-                <code>SELECT * FROM {schema[0]?.name} LIMIT 10;</code>
-              </div>
-            )}
-            {queryResult && !queryResult.ok && (
-              <div className={styles.queryError} role="alert">
-                <CircleAlert size={23} />
-                <div>
-                  <b>SQLite reports</b>
-                  <p>{queryResult.error}</p>
-                </div>
-              </div>
-            )}
-            {queryResult?.ok && queryResult.rows.length === 0 && (
-              <div className={styles.emptyResult}>
-                <FileText size={28} strokeWidth={1.3} />
-                <h3>No matching records</h3>
-                <p>The query ran successfully but returned no rows. Check names, values, and time boundaries.</p>
-              </div>
-            )}
-            {queryResult?.ok && queryResult.rows.length > 0 && <ResultTable result={queryResult} />}
-          </div>
-          {queryResult?.ok && queryResult.truncated && (
-            <p className={styles.truncatedNote}>Display stopped at 200 rows. Refine the query to narrow the evidence.</p>
+          {bothOpen && !isNarrow && (
+            <SqlSplitter containerRef={sqlSplitRef} value={queryShare} onChange={setQueryShare} />
           )}
-        </PageFold>
+
+          <PageFold
+            id="sql-results"
+            label="Results"
+            open={resultsOpen}
+            grow
+            className={styles.foldResults}
+            style={resultsOpen ? { flex: `${100 - queryShare} 1 0` } : undefined}
+            onToggle={toggleFold}
+          >
+            <div className={styles.resultStatus} aria-live="polite">
+              {queryRunning ? (
+                <span className={styles.statusWorking}>Searching records...</span>
+              ) : queryResult?.ok ? (
+                <>
+                  <span className={styles.statusGood}>{queryResult.rowCount} rows returned</span>
+                  <span>{queryResult.elapsedMs.toFixed(1)} ms</span>
+                </>
+              ) : queryResult ? (
+                <span className={styles.statusBad}>Query stopped</span>
+              ) : (
+                <span>No query run yet</span>
+              )}
+              <button
+                type="button"
+                className={styles.expandButton}
+                onClick={() => setResultsExpanded(true)}
+                aria-haspopup="dialog"
+              >
+                <Maximize2 size={12} aria-hidden="true" />
+                Expand
+              </button>
+            </div>
+            <div className={styles.resultSheet}>
+              {!queryResult && (
+                <div className={styles.emptyResult}>
+                  <Search size={30} strokeWidth={1.25} />
+                  <h3>The records are waiting</h3>
+                  <p>Run a query above. Results are logged here without altering the evidence.</p>
+                  <code>SELECT * FROM {schema[0]?.name} LIMIT 10;</code>
+                </div>
+              )}
+              {queryResult && !queryResult.ok && (
+                <div className={styles.queryError} role="alert">
+                  <CircleAlert size={23} />
+                  <div>
+                    <b>SQLite reports</b>
+                    <p>{queryResult.error}</p>
+                  </div>
+                </div>
+              )}
+              {queryResult?.ok && queryResult.rows.length === 0 && (
+                <div className={styles.emptyResult}>
+                  <FileText size={28} strokeWidth={1.3} />
+                  <h3>No matching records</h3>
+                  <p>The query ran successfully but returned no rows. Check names, values, and time boundaries.</p>
+                </div>
+              )}
+              {queryResult?.ok && queryResult.rows.length > 0 && <ResultTable result={queryResult} />}
+            </div>
+            {queryResult?.ok && queryResult.truncated && (
+              <p className={styles.truncatedNote}>Display stopped at 200 rows. Refine the query to narrow the evidence.</p>
+            )}
+          </PageFold>
+        </div>
       </>
     );
   }
@@ -876,6 +1171,7 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
           <h1>{mystery.title}</h1>
           <p>{mystery.subtitle}</p>
         </div>
+        <GuideTrigger onOpen={() => setGuideOpen(true)} />
       </header>
 
       <section className={styles.notebookStage} aria-label={`${mystery.title} case notebook`}>
@@ -919,6 +1215,14 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
           </nav>
         )}
       </section>
+      <DeskGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <ExpandedResults
+        open={resultsExpanded}
+        onClose={closeResults}
+        queryRunning={queryRunning}
+        queryResult={queryResult}
+        firstTable={schema[0]?.name}
+      />
     </main>
   );
 }
