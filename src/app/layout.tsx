@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   },
   description:
     "Interrogate the evidence. Query the records. Name the killer.",
+  icons: {
+    icon: "/bunnyDetective.png",
+    apple: "/bunnyDetective.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
