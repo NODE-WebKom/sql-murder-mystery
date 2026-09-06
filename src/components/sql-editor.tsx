@@ -66,9 +66,12 @@ interface SqlEditorProps {
   schema: SchemaTable[];
   onChange: (value: string) => void;
   onRun: () => void;
+  /** Narrow screens: let the editor grow with its content (capped by CSS)
+      instead of filling a fixed-height flex box. */
+  fluid?: boolean;
 }
 
-export default function SqlEditor({ value, schema, onChange, onRun }: SqlEditorProps) {
+export default function SqlEditor({ value, schema, onChange, onRun, fluid }: SqlEditorProps) {
   const completionSchema = Object.fromEntries(
     schema.map((table) => [table.name, table.columns.map((column) => column.name)]),
   );
@@ -86,7 +89,8 @@ export default function SqlEditor({ value, schema, onChange, onRun }: SqlEditorP
   return (
     <CodeMirror
       value={value}
-      height="100%"
+      height={fluid ? "auto" : "100%"}
+      minHeight={fluid ? "120px" : undefined}
       onChange={onChange}
       aria-label="SQL query editor"
       basicSetup={{

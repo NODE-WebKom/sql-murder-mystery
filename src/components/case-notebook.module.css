@@ -1204,8 +1204,13 @@
   .turningSheet { display: none; }
   /* No fixed page height to divide up, so folds flow at their natural size. */
   .foldGrow[data-open="true"] { flex: 0 0 auto; min-height: 0; }
-  /* Splitter is desktop-only: folds stack naturally on narrow screens. */
-  .sqlSplit { display: contents; }
+  /* Narrow screens show a single scrolling page: Query and Results stack as
+     plain sections (no collapsible folds, no splitter drag). The safety net
+     below forces fold bodies open even if a collapsed state was restored
+     from localStorage before hydration flips to the narrow layout. */
+  .sqlSplit { display: flex; flex-direction: column; gap: 4px; min-height: 0; flex: none; }
+  .foldBody[hidden] { display: flex; }
+  .foldSummary { display: none; }
   .splitter { display: none; }
   .resultBackdrop { padding: 12px; }
   .resultModal { max-height: 88svh; }
@@ -1243,8 +1248,45 @@
     text-transform: uppercase;
   }
   .mobileTabs button.mobileActive { transform: translateY(-5px); filter: brightness(1.15); }
-  .editorShell { min-height: 380px; }
-  .resultSheet { min-height: 380px; }
+  /* Static section labels replace the collapsible fold toggles on mobile. */
+  .mobileSection { display: flex; min-width: 0; flex: 0 0 auto; flex-direction: column; }
+  .mobileSectionLabel {
+    margin: 0;
+    padding: 7px 2px;
+    border-bottom: 1px solid rgba(55, 49, 40, .55);
+    color: #2f2a23;
+    font-family: var(--typewriter);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .mobileSectionBody { display: flex; min-width: 0; flex: 0 0 auto; flex-direction: column; padding: 11px 0 15px; }
+  /* Content-sized editor: grows with the query, then scrolls internally past
+     45svh instead of trapping page touch scroll in a fixed 380px box. */
+  .editorShell { min-height: 180px; max-height: 45svh; flex: 0 0 auto; }
+  .editorBody { overflow: auto; touch-action: pan-y; }
+  /* Inline query actions are replaced by the sticky run bar on mobile. */
+  .queryActions { display: none; }
+  .mobileRunBar {
+    position: sticky;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 8px 10px;
+    border: 1px solid rgba(63, 55, 44, .3);
+    border-radius: 4px;
+    background: rgba(238, 230, 211, .96);
+    box-shadow: 0 4px 14px rgba(48, 36, 22, .25);
+  }
+  /* Results flow with the page: no fixed min-height pushing content offscreen,
+     table scrolls internally only past 60svh. */
+  .resultSheet { min-height: 120px; flex: 0 0 auto; overflow: visible; }
+  .resultScroller { height: auto; max-height: 60svh; }
 }
 
 @media (max-width: 540px) {
@@ -1261,8 +1303,17 @@
   .pageHeading span { display: block; margin-top: 5px; }
   .pageHeading h2 { font-size: 21px; }
   .queryBrief span:last-child { display: none; }
-  .editorShell { min-height: 410px; }
-  .resultSheet { min-height: 390px; }
+  .editorShell { min-height: 180px; max-height: 45svh; }
+  .resultSheet { min-height: 120px; }
+  /* Row-number column scrolls sideways with the table on phones, but the
+     "#" header cell must keep sticking to the top with the rest of the
+     header row — so drop only the horizontal stick, not the vertical one. */
+  .resultTable th:first-child,
+  .resultTable td:first-child { left: auto; }
+  .resultTable tbody th { position: static; }
+  .resultTable th[data-width="long"],
+  .resultTable td[data-width="long"] { min-width: 220px; }
+  .emptyResult code { white-space: normal; overflow-wrap: anywhere; }
   .resultTable th,
   .resultTable td { max-width: 260px; }
   .briefCopy p { font-size: 12px; }

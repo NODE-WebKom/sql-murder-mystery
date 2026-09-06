@@ -840,6 +840,108 @@ export function CaseNotebook({ mystery, schema }: CaseNotebookProps) {
     const queryOpen = folds["sql-query"];
     const resultsOpen = folds["sql-results"];
     const bothOpen = queryOpen && resultsOpen;
+    if (isNarrow) {
+      // Narrow screens show a single scrolling page: Query and Results are
+      // always-open plain sections (no collapsible folds), followed by a
+      // sticky run bar that stays reachable above the bottom tab bar.
+      return (
+        <div className={styles.sqlSplit}>
+          <section className={styles.mobileSection} aria-label="Query">
+            <h3 className={styles.mobileSectionLabel}>Query</h3>
+            <div className={styles.mobileSectionBody}>
+              <div className={styles.queryBrief}>
+                <span><KeyRound size={12} /> Tap Run to search the records</span>
+              </div>
+              <div className={styles.editorShell}>
+                <div className={styles.editorBody}>
+                  <SqlEditor
+                    value={sqlText}
+                    schema={schema}
+                    onChange={setSqlText}
+                    onRun={runQuery}
+                    fluid
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className={styles.mobileRunBar} role="group" aria-label="Query actions">
+            <button type="button" className={styles.textButton} onClick={resetSql}>
+              <RotateCcw size={14} /> Reset
+            </button>
+            <button
+              type="button"
+              className={styles.runButton}
+              onClick={runQuery}
+              disabled={queryRunning}
+            >
+              <Play size={15} fill="currentColor" />
+              {queryRunning ? "Running..." : "Run query"}
+            </button>
+          </div>
+
+          <section className={styles.mobileSection} aria-label="Results">
+            <h3 className={styles.mobileSectionLabel}>Results</h3>
+            <div className={styles.mobileSectionBody}>
+              <div className={styles.resultStatus} aria-live="polite">
+                {queryRunning ? (
+                  <span className={styles.statusWorking}>Searching records...</span>
+                ) : queryResult?.ok ? (
+                  <>
+                    <span className={styles.statusGood}>{queryResult.rowCount} rows returned</span>
+                    <span>{queryResult.elapsedMs.toFixed(1)} ms</span>
+                  </>
+                ) : queryResult ? (
+                  <span className={styles.statusBad}>Query stopped</span>
+                ) : (
+                  <span>No query run yet</span>
+                )}
+                <button
+                  type="button"
+                  className={styles.expandButton}
+                  onClick={() => setResultsExpanded(true)}
+                  aria-haspopup="dialog"
+                >
+                  <Maximize2 size={12} aria-hidden="true" />
+                  Expand
+                </button>
+              </div>
+              <div className={styles.resultSheet}>
+                {!queryResult && (
+                  <div className={styles.emptyResult}>
+                    <Search size={30} strokeWidth={1.25} />
+                    <h3>The records are waiting</h3>
+                    <p>Run a query above. Results are logged here without altering the evidence.</p>
+                    <code>SELECT * FROM {schema[0]?.name} LIMIT 10;</code>
+                  </div>
+                )}
+                {queryResult && !queryResult.ok && (
+                  <div className={styles.queryError} role="alert">
+                    <CircleAlert size={23} />
+                    <div>
+                      <b>SQLite reports</b>
+                      <p>{queryResult.error}</p>
+                    </div>
+                  </div>
+                )}
+                {queryResult?.ok && queryResult.rows.length === 0 && (
+                  <div className={styles.emptyResult}>
+                    <FileText size={28} strokeWidth={1.3} />
+                    <h3>No matching records</h3>
+                    <p>The query ran successfully but returned no rows. Check names, values, and time boundaries.</p>
+                  </div>
+                )}
+                {queryResult?.ok && queryResult.rows.length > 0 && <ResultTable result={queryResult} />}
+              </div>
+              {queryResult?.ok && queryResult.truncated && (
+                <p className={styles.truncatedNote}>Display stopped at 200 rows. Refine the query to narrow the evidence.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      );
+    }
     return (
       <>
         <div ref={sqlSplitRef} className={styles.sqlSplit}>
